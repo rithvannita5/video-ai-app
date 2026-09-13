@@ -19,37 +19,39 @@ os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 
-# ចាប់ផ្តើម POT Provider Server នៅពេល App ចាប់ផ្តើម
+
 def start_pot_provider():
+    """ចាប់ផ្តើម POT Provider Server នៅពេល App ចាប់ផ្តើម"""
     try:
-        # ចាប់ផ្តើម bgutil POT provider server
         subprocess.Popen(
             ["python", "-m", "bgutil_ytdlp_pot_provider", "server"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL
         )
-        time.sleep(3)  # រង់ចាំ server ចាប់ផ្តើម
+        time.sleep(3)
         print("POT Provider started on port 4416")
     except Exception as e:
         print(f"Warning: Could not start POT Provider: {e}")
 
-# ចាប់ផ្តើម POT Provider
+
 start_pot_provider()
 
 
 def download_video_from_link(video_url, output_path):
     """
-    ប្រើ yt-dlp ជាមួយ POT Provider ដើម្បីទាញយកវីដេអូ
+    ប្រើ yt-dlp ជាមួយ curl_cffi (impersonate) និង POT Provider
+    ដើម្បីទាញយកវីដេអូពី Link
     """
     ydl_opts = {
         'format': 'mp4/bestvideo+bestaudio/best',
         'outtmpl': output_path,
         'quiet': True,
         'no_warnings': True,
+        # ប្រើ curl_cffi សម្រាប់ impersonation (ក្លែងធ្វើជា Browser)
+        'impersonate': 'chrome',
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         },
-        # ប្រាប់ yt-dlp ឱ្យប្រើ POT Provider នៅ localhost:4416
         'extractor_args': {
             'youtubepot-bgutilhttp': {
                 'base_url': 'http://127.0.0.1:4416'
