@@ -1,12 +1,15 @@
 FROM python:3.11-slim
 
-# ដំឡើង FFmpeg និង Node.js (សម្រាប់ yt-dlp JS runtime)
+# ដំឡើង FFmpeg និង Node.js ជំនាន់ថ្មី (Node 22)
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     curl \
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
+
+# ពិនិត្យ Node.js version
+RUN node --version && npm --version
 
 WORKDIR /app
 
