@@ -43,11 +43,11 @@ def download_video_from_link(video_url, output_path):
         'quiet': False,
         'verbose': True,
         'no_warnings': False,
+        'ignoreerrors': False,
         'impersonate': 'chrome',
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         },
-        # បន្ថែម JavaScript Runtime (Node.js)
         'js_runtimes': {'node': {}},
         'extractor_args': {
             'youtubepot-bgutilhttp': {
@@ -58,10 +58,14 @@ def download_video_from_link(video_url, output_path):
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([video_url])
+            info = ydl.extract_info(video_url, download=True)
+            if info is None:
+                raise Exception("yt-dlp មិនអាចទាញយកព័ត៌មានវីដេអូបានទេ")
         return output_path
+    except yt_dlp.utils.DownloadError as e:
+        raise Exception(f"DownloadError: {str(e)}")
     except Exception as e:
-        raise Exception(f"{str(e)}")
+        raise Exception(f"GeneralError: {str(e)}")
 
 
 @app.route('/')
@@ -140,7 +144,7 @@ def process_video():
                 try:
                     sub_clip = clip.subclipped(start, end)
                 except AttributeError:
-                    sub_clip = sub_clip.subclip(start, end)
+                    sub_clip = clip.subclip(start, end)
 
                 sub_clip.write_videofile(
                     output_path,
