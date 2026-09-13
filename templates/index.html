@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Video AI Webapp</title>
+    <!-- ពុម្ពអក្សរខ្មែរស្អាត -->
     <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -111,6 +112,11 @@
             transform: translateY(-2px);
             box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
         }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
         .note { font-size: 13px; color: #888; margin-top: 8px; }
         .result {
             margin-top: 25px;
@@ -119,6 +125,28 @@
             border-radius: 10px;
             display: none;
             border-left: 4px solid #4caf50;
+        }
+        .result.error {
+            background: #ffebee;
+            border-left-color: #f44336;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -135,14 +163,15 @@
                     <label for="videoFile" class="file-input-btn" id="fileLabel">📁 ចុចទីនេះដើម្បីជ្រើសរើសវីដេអូ</label>
                 </div>
                 <div class="divider">ឬ</div>
-                <input type="text" name="video_link" placeholder="ដាក់តំណភ្ជាប់វីដេអូ (ឧ. https://youtu.be/...)">
+                <input type="text" name="video_link" id="videoLink" placeholder="ដាក់តំណភ្ជាប់វីដេអូ (YouTube, Dailymotion, TikTok...)">
+                <p class="note">* គាំទ្រ YouTube, Dailymotion, TikTok, Twitter, Instagram ។ល។</p>
             </div>
 
             <!-- 2. កាត់វីដេអូស្វ័យប្រវត្តិ -->
             <div class="form-group">
                 <label>2. កាត់វីដេអូស្វ័យប្រវត្តិ (Auto Split)</label>
-                <input type="number" name="minutes_per_part" min="1" step="1" placeholder="បំពេញចំនួននាទី (ទុកទទេ = មិនកាត់)">
-                <p class="note">* ឧទាហរណ៍៖ វីដេអូ 60 នាទី បើកំណត់ 10 នាទី វានឹងកាត់ជា 6 ផ្នែកដោយស្វ័យប្រវត្តិ។</p>
+                <input type="number" name="minutes_per_part" id="minutesPerPart" min="1" step="1" placeholder="បំពេញចំនួននាទី (ទុកទទេ = មិនកាត់)">
+                <p class="note">* បើទុកទទេ វីដេអូនឹងចេញពេញលេញធម្មតា។ បើបំពេញ ឧ. 10 នាទី វីដេអូ 60 នាទី នឹងកាត់ជា 6 ផ្នែក។</p>
             </div>
 
             <!-- 3. ជ្រើសរើសភាសាបកប្រែ -->
@@ -167,21 +196,56 @@
                 </select>
             </div>
 
-            <button type="submit">🚀 ចាប់ផ្តើមដំណើរការ (Process Video)</button>
+            <button type="submit" id="submitBtn">🚀 ចាប់ផ្តើមដំណើរការ (Process Video)</button>
         </form>
 
+        <!-- បង្ហាញពេលកំពុងដំណើរការ -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>⏳ កំពុងដំណើរការ សូមរង់ចាំបន្តិច...</p>
+        </div>
+
+        <!-- បង្ហាញលទ្ធផល -->
         <div class="result" id="result">
-            <p>✅ ការងាររបស់អ្នកកំពុងដំណើរការ! សូមរង់ចាំ...</p>
+            <p id="resultText">✅ ការងាររបស់អ្នកកំពុងដំណើរការ!</p>
         </div>
     </div>
 
     <script>
+        // បង្ហាញឈ្មោះឯកសារពេលជ្រើសរើស
         document.getElementById('videoFile').onchange = function(e) {
             const fileName = e.target.files[0] ? e.target.files[0].name : '📁 ចុចទីនេះដើម្បីជ្រើសរើសវីដេអូ';
-            document.getElementById('fileLabel').textContent = fileName;
+            document.getElementById('fileLabel').textContent = '📁 ' + fileName;
+            // បើជ្រើសឯកសារ សូមសម្អាត Link
+            if (e.target.files[0]) {
+                document.getElementById('videoLink').value = '';
+            }
         };
-        document.getElementById('uploadForm').onsubmit = function() {
-            document.getElementById('result').style.display = 'block';
+
+        // ពេលដាក់ Link សូមសម្អាត File
+        document.getElementById('videoLink').oninput = function() {
+            if (this.value.trim() !== '') {
+                document.getElementById('videoFile').value = '';
+                document.getElementById('fileLabel').textContent = '📁 ចុចទីនេះដើម្បីជ្រើសរើសវីដេអូ';
+            }
+        };
+
+        // ពេល Submit
+        document.getElementById('uploadForm').onsubmit = function(e) {
+            const videoFile = document.getElementById('videoFile').files.length;
+            const videoLink = document.getElementById('videoLink').value.trim();
+
+            // ពិនិត្យថាមាន Upload ឬ Link
+            if (videoFile === 0 && videoLink === '') {
+                e.preventDefault();
+                alert('សូម Upload វីដេអូ ឬ ដាក់ Link ជាមុនសិន');
+                return false;
+            }
+
+            // បង្ហាញ Loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('submitBtn').disabled = true;
+            document.getElementById('result').style.display = 'none';
         };
     </script>
 </body>
