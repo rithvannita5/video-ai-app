@@ -1,7 +1,12 @@
 from flask import Flask, render_template, request, send_file
 import os
 import time
-from moviepy.editor import VideoFileClip
+
+# គាំទ្រទាំង MoviePy v2.x និង v1.x
+try:
+    from moviepy import VideoFileClip  # v2.x
+except ImportError:
+    from moviepy.editor import VideoFileClip  # v1.x
 
 app = Flask(__name__)
 
@@ -79,6 +84,7 @@ def process_video():
                 output_filename = f"{base_name}_part{i+1}.mp4"
                 output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
 
+                # គាំទ្រទាំង subclipped (v2) និង subclip (v1)
                 try:
                     sub_clip = clip.subclipped(start, end)
                 except AttributeError:
