@@ -21,7 +21,6 @@ app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 
 
 def start_pot_provider():
-    """ចាប់ផ្តើម POT Provider Server នៅពេល App ចាប់ផ្តើម"""
     try:
         subprocess.Popen(
             ["python", "-m", "bgutil_ytdlp_pot_provider", "server"],
@@ -29,25 +28,21 @@ def start_pot_provider():
             stderr=subprocess.DEVNULL
         )
         time.sleep(3)
-        print("POT Provider started on port 4416")
+        print("POT Provider started")
     except Exception as e:
-        print(f"Warning: Could not start POT Provider: {e}")
+        print(f"POT Provider warning: {e}")
 
 
 start_pot_provider()
 
 
 def download_video_from_link(video_url, output_path):
-    """
-    ប្រើ yt-dlp ជាមួយ curl_cffi (impersonate) និង POT Provider
-    ដើម្បីទាញយកវីដេអូពី Link
-    """
     ydl_opts = {
         'format': 'mp4/bestvideo+bestaudio/best',
         'outtmpl': output_path,
-        'quiet': True,
-        'no_warnings': True,
-        # ប្រើ curl_cffi សម្រាប់ impersonation (ក្លែងធ្វើជា Browser)
+        'quiet': False,          # បង្ហាញ log
+        'verbose': True,         # បង្ហាញ Error លម្អិត
+        'no_warnings': False,
         'impersonate': 'chrome',
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -64,7 +59,7 @@ def download_video_from_link(video_url, output_path):
             ydl.download([video_url])
         return output_path
     except Exception as e:
-        raise Exception(f"yt-dlp Error: {str(e)}")
+        raise Exception(f"{str(e)}")
 
 
 @app.route('/')
@@ -88,17 +83,12 @@ def process_video():
         except (ValueError, TypeError):
             minutes_per_part = None
 
-    target_language = request.form.get('target_language', 'km')
-    voice_gender = request.form.get('voice_gender', 'female')
-
     input_path = None
 
-    # ជម្រើសទី 1: Upload ឯកសារ
     if video_file and video_file.filename != '':
         input_path = os.path.join(app.config['UPLOAD_FOLDER'], video_file.filename)
         video_file.save(input_path)
 
-    # ជម្រើសទី 2: ដាក់ Link
     elif video_link:
         try:
             filename = f"downloaded_{int(time.time())}.mp4"
