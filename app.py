@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, send_file
 import os
-import yt_dlp
+import requests
 
 try:
     from moviepy import VideoFileClip
@@ -18,6 +18,53 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 
 
+def download_video_from_link(video_url, output_path):
+    """
+    ប្រើ Cobalt API ដើម្បីទាញយកវីដេអូពី Link
+    គាំទ្រ YouTube, Dailymotion, Twitter, TikTok, Instagram ជាដើម
+    """
+    # Cobalt API Instance (ឥតគិតថ្លៃ)
+    api_url = "https://api.cobalt.tools/api/json"
+    
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
+    
+    payload = {
+        "url": video_url,
+        "vQuality": "720",  # គុណភាពវីដេអូ
+        "isAudioOnly": False,
+    }
+    
+    try:
+        response = requests.post(api_url, json=payload, headers=headers, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+        
+        if data.get("status") == "error":
+            raise Exception(data.get("text", "Unknown error from Cobalt API"))
+        
+        # Cobalt ត្រឡប់ URL នៃវីដេអូដែលបានរៀបចំរួច
+        download_url = data.get("url")
+        if not download_url:
+            raise Exception("Cobalt API មិនបានត្រឡប់ URL ទាញយកទេ")
+        
+        # ទាញយកវីដេអូពី URL នោះ
+        video_response = requests.get(download_url, stream=True, timeout=120)
+        video_response.raise_for_status()
+        
+        with open(output_path, 'wb') as f:
+            for chunk in video_response.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+        
+        return output_path
+    
+    except Exception as e:
+        raise Exception(f"Cobalt API Error: {str(e)}")
+
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -31,7 +78,7 @@ def process_video():
     # កែ: បើមិនបំពេញនាទី ឱ្យចេញវីដេអូពេញលេញធម្មតា
     minutes_raw = request.form.get('minutes_per_part', '').strip()
     if minutes_raw == '' or minutes_raw is None:
-        minutes_per_part = None  # មានន័យថាមិនកាត់
+        minutes_per_part = None
     else:
         try:
             minutes_per_part = float(minutes_raw)
@@ -50,28 +97,21 @@ def process_video():
         input_path = os.path.join(app.config['UPLOAD_FOLDER'], video_file.filename)
         video_file.save(input_path)
 
-    # ជម្រើសទី 2: ដាក់ Link
+    # ជម្រើសទី 2: ដាក់ Link (ប្រើ Cobalt API)
     elif video_link:
         try:
-            ydl_opts = {
-                'format': 'mp4/bestvideo+bestaudio/best',
-                'outtmpl': os.path.join(app.config['UPLOAD_FOLDER'], '%(title)s.%(ext)s'),
-                'quiet': True,
-                'no_warnings': True,
-                # បន្ថែម User-Agent ដើម្បីកាត់បន្ថយការ Block
-                'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                },
-            }
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(video_link, download=True)
-                input_path = ydl.prepare_filename(info)
+            # កំណត់ឈ្មោះឯកសារតាមពេលវេលា
+            import time
+            filename = f"downloaded_{int(time.time())}.mp4"
+            input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            
+            download_video_from_link(video_link, input_path)
+            
+            if not os.path.exists(input_path) or os.path.getsize(input_path) == 0:
+                return "ការទាញយកវីដេអូបរាជ័យ ឬ ឯកសារទទេ", 400
+                
         except Exception as e:
-            error_msg = str(e)
-            # បង្ហាញសារជាភាសាខ្មែរឱ្យអានយល់
-            if "youtube" in error_msg.lower():
-                return "មិនអាចទាញយកពី YouTube បានទេ ដោយសារ YouTube Block Server។ សូមព្យាយាម Upload វីដេអូផ្ទាល់ ឬ ប្រើ Link ពី Website ផ្សេង (ឧ. Vimeo, Dailymotion)។", 400
-            return f"មិនអាចទាញយកវីដេអូពី Link បានទេ: {error_msg}", 400
+            return f"មិនអាចទាញយកវីដេអូពី Link បានទេ: {str(e)}", 400
     else:
         return "សូម Upload វីដេអូ ឬ ដាក់ Link ជាមុនសិន", 400
 
@@ -87,7 +127,6 @@ def process_video():
             output_filename = f"{base_name}_full.mp4"
             output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
             
-            # គ្រាន់តែ copy វីដេអូដើម (ឬ save ជា mp4 ថ្មី)
             clip.write_videofile(
                 output_path,
                 codec="libx264",
@@ -109,7 +148,6 @@ def process_video():
                 output_filename = f"{base_name}_part{i+1}.mp4"
                 output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
 
-                # គាំទ្រទាំង subclipped (v2) និង subclip (v1)
                 try:
                     sub_clip = clip.subclipped(start, end)
                 except AttributeError:
