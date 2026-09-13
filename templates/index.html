@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Video AI Webapp</title>
-    <!-- ពុម្ពអក្សរខ្មែរស្អាត -->
     <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -39,7 +38,7 @@
             color: #444;
             font-size: 15px;
         }
-        input[type="text"], input[type="number"], select {
+        input[type="number"], select {
             width: 100%;
             padding: 14px;
             border: 2px solid #e0e0e0;
@@ -69,7 +68,7 @@
         }
         .file-input-btn {
             display: block;
-            padding: 14px;
+            padding: 20px;
             background: #f0f2f5;
             border: 2px dashed #ccc;
             border-radius: 10px;
@@ -77,24 +76,12 @@
             color: #666;
             font-weight: 600;
             cursor: pointer;
+            transition: all 0.3s;
         }
-        .divider {
-            text-align: center;
-            margin: 20px 0;
-            color: #999;
-            font-size: 14px;
-            position: relative;
+        .file-input-btn:hover {
+            border-color: #667eea;
+            background: #eef1ff;
         }
-        .divider::before, .divider::after {
-            content: "";
-            position: absolute;
-            top: 50%;
-            width: 45%;
-            height: 1px;
-            background: #e0e0e0;
-        }
-        .divider::before { left: 0; }
-        .divider::after { right: 0; }
         button {
             width: 100%;
             padding: 16px;
@@ -118,18 +105,6 @@
             transform: none;
         }
         .note { font-size: 13px; color: #888; margin-top: 8px; }
-        .result {
-            margin-top: 25px;
-            padding: 20px;
-            background: #e8f5e9;
-            border-radius: 10px;
-            display: none;
-            border-left: 4px solid #4caf50;
-        }
-        .result.error {
-            background: #ffebee;
-            border-left-color: #f44336;
-        }
         .loading {
             display: none;
             text-align: center;
@@ -155,22 +130,19 @@
         <h1>🎬 Video AI Webapp</h1>
         <form id="uploadForm" action="/process" method="POST" enctype="multipart/form-data">
 
-            <!-- 1. Upload ឬ Link -->
+            <!-- 1. Upload វីដេអូ -->
             <div class="form-group">
-                <label>1. Upload វីដេអូ ឬ ដាក់ Share Link</label>
+                <label>1. ជ្រើសរើសវីដេអូ (Upload Video)</label>
                 <div class="file-input-wrapper">
-                    <input type="file" name="video" id="videoFile" accept="video/*">
+                    <input type="file" name="video" id="videoFile" accept="video/*" required>
                     <label for="videoFile" class="file-input-btn" id="fileLabel">📁 ចុចទីនេះដើម្បីជ្រើសរើសវីដេអូ</label>
                 </div>
-                <div class="divider">ឬ</div>
-                <input type="text" name="video_link" id="videoLink" placeholder="ដាក់តំណភ្ជាប់វីដេអូ (YouTube, Dailymotion, TikTok...)">
-                <p class="note">* គាំទ្រ YouTube, Dailymotion, TikTok, Twitter, Instagram ។ល។</p>
             </div>
 
             <!-- 2. កាត់វីដេអូស្វ័យប្រវត្តិ -->
             <div class="form-group">
                 <label>2. កាត់វីដេអូស្វ័យប្រវត្តិ (Auto Split)</label>
-                <input type="number" name="minutes_per_part" id="minutesPerPart" min="1" step="1" placeholder="បំពេញចំនួននាទី (ទុកទទេ = មិនកាត់)">
+                <input type="number" name="minutes_per_part" min="1" step="1" placeholder="បំពេញចំនួននាទី (ទុកទទេ = មិនកាត់)">
                 <p class="note">* បើទុកទទេ វីដេអូនឹងចេញពេញលេញធម្មតា។ បើបំពេញ ឧ. 10 នាទី វីដេអូ 60 នាទី នឹងកាត់ជា 6 ផ្នែក។</p>
             </div>
 
@@ -199,53 +171,21 @@
             <button type="submit" id="submitBtn">🚀 ចាប់ផ្តើមដំណើរការ (Process Video)</button>
         </form>
 
-        <!-- បង្ហាញពេលកំពុងដំណើរការ -->
         <div class="loading" id="loading">
             <div class="spinner"></div>
             <p>⏳ កំពុងដំណើរការ សូមរង់ចាំបន្តិច...</p>
         </div>
-
-        <!-- បង្ហាញលទ្ធផល -->
-        <div class="result" id="result">
-            <p id="resultText">✅ ការងាររបស់អ្នកកំពុងដំណើរការ!</p>
-        </div>
     </div>
 
     <script>
-        // បង្ហាញឈ្មោះឯកសារពេលជ្រើសរើស
         document.getElementById('videoFile').onchange = function(e) {
             const fileName = e.target.files[0] ? e.target.files[0].name : '📁 ចុចទីនេះដើម្បីជ្រើសរើសវីដេអូ';
             document.getElementById('fileLabel').textContent = '📁 ' + fileName;
-            // បើជ្រើសឯកសារ សូមសម្អាត Link
-            if (e.target.files[0]) {
-                document.getElementById('videoLink').value = '';
-            }
         };
 
-        // ពេលដាក់ Link សូមសម្អាត File
-        document.getElementById('videoLink').oninput = function() {
-            if (this.value.trim() !== '') {
-                document.getElementById('videoFile').value = '';
-                document.getElementById('fileLabel').textContent = '📁 ចុចទីនេះដើម្បីជ្រើសរើសវីដេអូ';
-            }
-        };
-
-        // ពេល Submit
         document.getElementById('uploadForm').onsubmit = function(e) {
-            const videoFile = document.getElementById('videoFile').files.length;
-            const videoLink = document.getElementById('videoLink').value.trim();
-
-            // ពិនិត្យថាមាន Upload ឬ Link
-            if (videoFile === 0 && videoLink === '') {
-                e.preventDefault();
-                alert('សូម Upload វីដេអូ ឬ ដាក់ Link ជាមុនសិន');
-                return false;
-            }
-
-            // បង្ហាញ Loading
             document.getElementById('loading').style.display = 'block';
             document.getElementById('submitBtn').disabled = true;
-            document.getElementById('result').style.display = 'none';
         };
     </script>
 </body>
