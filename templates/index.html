@@ -4,20 +4,123 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Video AI Webapp</title>
+    <!-- បន្ថែម Google Font សម្រាប់អក្សរខ្មែរឱ្យស្អាត -->
+    <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f4f4f9; }
-        h1 { color: #333; text-align: center; }
-        .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        .form-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 8px; font-weight: bold; color: #555; }
-        input[type="file"], input[type="number"], select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
-        .row { display: flex; gap: 20px; }
-        .row .form-group { flex: 1; }
-        button { width: 100%; padding: 15px; background-color: #28a745; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; }
-        button:hover { background-color: #218838; }
-        .note { font-size: 12px; color: #888; margin-top: 5px; }
-        .result { margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 5px; display: none; }
-        .result a { color: #007bff; font-weight: bold; text-decoration: none; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Kantumruy Pro', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: #ffffff;
+            width: 100%;
+            max-width: 650px;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        .form-group { margin-bottom: 25px; }
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #444;
+            font-size: 15px;
+        }
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 15px;
+            font-family: 'Kantumruy Pro', sans-serif;
+            transition: border-color 0.3s;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+        }
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        .file-input-btn {
+            display: block;
+            padding: 14px;
+            background: #f0f2f5;
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            text-align: center;
+            color: #666;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .divider {
+            text-align: center;
+            margin: 20px 0;
+            color: #999;
+            font-size: 14px;
+            position: relative;
+        }
+        .divider::before, .divider::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            width: 45%;
+            height: 1px;
+            background: #e0e0e0;
+        }
+        .divider::before { left: 0; }
+        .divider::after { right: 0; }
+        button {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 17px;
+            font-weight: 700;
+            font-family: 'Kantumruy Pro', sans-serif;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        .note { font-size: 13px; color: #888; margin-top: 8px; }
+        .result {
+            margin-top: 25px;
+            padding: 20px;
+            background: #e8f5e9;
+            border-radius: 10px;
+            display: none;
+            border-left: 4px solid #4caf50;
+        }
     </style>
 </head>
 <body>
@@ -25,38 +128,45 @@
         <h1>🎬 Video AI Webapp</h1>
         <form id="uploadForm" action="/process" method="POST" enctype="multipart/form-data">
             
-            <!-- ផ្នែក Upload វីដេអូ -->
+            <!-- ផ្នែក Upload វីដេអូ ឬ ដាក់ Link -->
             <div class="form-group">
-                <label>1. ជ្រើសរើសវីដេអូ (Upload Video)</label>
-                <input type="file" name="video" accept="video/*" required>
-            </div>
-
-            <!-- ផ្នែកកាត់វីដេអូ -->
-            <div class="form-group">
-                <label>2. កំណត់ការកាត់វីដេអូ (Trim Video)</label>
-                <div class="row">
-                    <div class="form-group">
-                        <label>ចាប់ផ្តើម (នាទីទី):</label>
-                        <input type="number" name="start_min" value="0" min="0" step="0.1">
-                    </div>
-                    <div class="form-group">
-                        <label>បញ្ចប់ (នាទីទី):</label>
-                        <input type="number" name="end_min" value="1" min="0.1" step="0.1">
-                    </div>
+                <label>1. Upload វីដេអូ ឬ ដាក់ Share Link</label>
+                <div class="file-input-wrapper">
+                    <input type="file" name="video" id="videoFile" accept="video/*">
+                    <label for="videoFile" class="file-input-btn" id="fileLabel">📁 ចុចទីនេះដើម្បីជ្រើសរើសវីដេអូ</label>
                 </div>
-                <p class="note">* ឧទាហរណ៍៖ ចង់កាត់ត្រឹម 2 នាទី សូមបំពេញ 0 ដល់ 2 ។</p>
+                <div class="divider">ឬ</div>
+                <input type="text" name="video_link" placeholder="ដាក់តំណភ្ជាប់វីដេអូ (ឧ. https://youtu.be/...)">
             </div>
 
-            <!-- ផ្នែកបកប្រែ និងសំឡេង AI (នឹងធ្វើនៅជំហានក្រោយ) -->
+            <!-- ផ្នែកកាត់វីដេអូស្វ័យប្រវត្តិ -->
             <div class="form-group">
-                <label>3. ជម្រើសបកប្រែ និងសំឡេង AI</label>
+                <label>2. កាត់វីដេអូស្វ័យប្រវត្តិ (Auto Split)</label>
+                <input type="number" name="minutes_per_part" value="10" min="1" step="1" placeholder="បំពេញចំនួននាទីក្នុងមួយផ្នែក">
+                <p class="note">* ឧទាហរណ៍៖ វីដេអូ 60 នាទី បើកំណត់ 10 នាទី វានឹងកាត់ជា 6 ផ្នែកដោយស្វ័យប្រវត្តិ។</p>
+            </div>
+
+            <!-- ផ្នែកបកប្រែ និងសំឡេង AI -->
+            <div class="form-group">
+                <label>3. ជ្រើសរើសភាសាបកប្រែ</label>
+                <select name="target_language">
+                    <option value="km">ខ្មែរ (Khmer)</option>
+                    <option value="en">អង់គ្លេស (English)</option>
+                    <option value="th">ថៃ (Thai)</option>
+                    <option value="vi">វៀតណាម (Vietnamese)</option>
+                    <option value="zh">ចិន (Chinese)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>4. ជ្រើសរើសសំឡេង AI</label>
                 <select name="voice_gender">
                     <option value="female">សំឡេងស្រី (Female)</option>
                     <option value="male">សំឡេងប្រុស (Male)</option>
                 </select>
             </div>
 
-            <button type="submit">ចាប់ផ្តើមដំណើរការ (Process Video)</button>
+            <button type="submit">🚀 ចាប់ផ្តើមដំណើរការ (Process Video)</button>
         </form>
 
         <div class="result" id="result">
@@ -65,6 +175,12 @@
     </div>
 
     <script>
+        // បង្ហាញឈ្មោះឯកសារពេលជ្រើសរើស
+        document.getElementById('videoFile').onchange = function(e) {
+            const fileName = e.target.files[0] ? e.target.files[0].name : 'ចុចទីនេះដើម្បីជ្រើសរើសវីដេអូ';
+            document.getElementById('fileLabel').textContent = '📁 ' + fileName;
+        };
+        
         document.getElementById('uploadForm').onsubmit = function() {
             document.getElementById('result').style.display = 'block';
         };
