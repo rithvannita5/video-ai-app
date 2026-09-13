@@ -1,59 +1,189 @@
-# app.py - ជំនាន់កែសម្រួលសម្រាប់ទាំង MoviePy v1 និង v2
-from flask import Flask, render_template, request, send_file
-import os
+<!DOCTYPE html>
+<html lang="km">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video AI Webapp</title>
+    <!-- បន្ថែម Google Font សម្រាប់អក្សរខ្មែរឱ្យស្អាត -->
+    <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Kantumruy Pro', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: #ffffff;
+            width: 100%;
+            max-width: 650px;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        .form-group { margin-bottom: 25px; }
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #444;
+            font-size: 15px;
+        }
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 15px;
+            font-family: 'Kantumruy Pro', sans-serif;
+            transition: border-color 0.3s;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+        }
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        .file-input-btn {
+            display: block;
+            padding: 14px;
+            background: #f0f2f5;
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            text-align: center;
+            color: #666;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .divider {
+            text-align: center;
+            margin: 20px 0;
+            color: #999;
+            font-size: 14px;
+            position: relative;
+        }
+        .divider::before, .divider::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            width: 45%;
+            height: 1px;
+            background: #e0e0e0;
+        }
+        .divider::before { left: 0; }
+        .divider::after { right: 0; }
+        button {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 17px;
+            font-weight: 700;
+            font-family: 'Kantumruy Pro', sans-serif;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        .note { font-size: 13px; color: #888; margin-top: 8px; }
+        .result {
+            margin-top: 25px;
+            padding: 20px;
+            background: #e8f5e9;
+            border-radius: 10px;
+            display: none;
+            border-left: 4px solid #4caf50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Video AI Webapp</h1>
+        <form id="uploadForm" action="/process" method="POST" enctype="multipart/form-data">
+            
+            <!-- ផ្នែក Upload វីដេអូ ឬ ដាក់ Link -->
+            <div class="form-group">
+                <label>1. Upload វីដេអូ ឬ ដាក់ Share Link</label>
+                <div class="file-input-wrapper">
+                    <input type="file" name="video" id="videoFile" accept="video/*">
+                    <label for="videoFile" class="file-input-btn" id="fileLabel">📁 ចុចទីនេះដើម្បីជ្រើសរើសវីដេអូ</label>
+                </div>
+                <div class="divider">ឬ</div>
+                <input type="text" name="video_link" placeholder="ដាក់តំណភ្ជាប់វីដេអូ (ឧ. https://youtu.be/...)">
+            </div>
 
-try:
-    # សម្រាប់ MoviePy v2.x (ជំនាន់ថ្មី)
-    from moviepy import VideoFileClip
-except ImportError:
-    # សម្រាប់ MoviePy v1.x (ជំនាន់ចាស់)
-    from moviepy.editor import VideoFileClip
+            <!-- ផ្នែកកាត់វីដេអូស្វ័យប្រវត្តិ -->
+            <div class="form-group">
+                <label>2. កាត់វីដេអូស្វ័យប្រវត្តិ (Auto Split)</label>
+                <input type="number" name="minutes_per_part" value="10" min="1" step="1" placeholder="បំពេញចំនួននាទីក្នុងមួយផ្នែក">
+                <p class="note">* ឧទាហរណ៍៖ វីដេអូ 60 នាទី បើកំណត់ 10 នាទី វានឹងកាត់ជា 6 ផ្នែកដោយស្វ័យប្រវត្តិ។</p>
+            </div>
 
-app = Flask(__name__)
+            <!-- ផ្នែកបកប្រែ និងសំឡេង AI -->
+            <div class="form-group">
+                <label>3. ជ្រើសរើសភាសាបកប្រែ</label>
+                <select name="target_language">
+                    <option value="km">ខ្មែរ (Khmer)</option>
+                    <option value="en">អង់គ្លេស (English)</option>
+                    <option value="th">ថៃ (Thai)</option>
+                    <option value="vi">វៀតណាម (Vietnamese)</option>
+                    <option value="zh">ចិន (Chinese)</option>
+                </select>
+            </div>
 
-# កំណត់ថតសម្រាប់ផ្ទុកឯកសារបណ្ដោះអាសន្ន
-UPLOAD_FOLDER = '/tmp'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+            <div class="form-group">
+                <label>4. ជ្រើសរើសសំឡេង AI</label>
+                <select name="voice_gender">
+                    <option value="female">សំឡេងស្រី (Female)</option>
+                    <option value="male">សំឡេងប្រុស (Male)</option>
+                </select>
+            </div>
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+            <button type="submit">🚀 ចាប់ផ្តើមដំណើរការ (Process Video)</button>
+        </form>
 
-@app.route('/process', methods=['POST'])
-def process_video():
-    video = request.files['video']
-    start_min = float(request.form['start_min'])
-    end_min = float(request.form['end_min'])
-    
-    if video.filename == '':
-        return "គ្មានឯកសារត្រូវបានជ្រើសរើសទេ", 400
+        <div class="result" id="result">
+            <p>✅ ការងាររបស់អ្នកកំពុងដំណើរការ! សូមរង់ចាំ...</p>
+        </div>
+    </div>
 
-    input_path = os.path.join(app.config['UPLOAD_FOLDER'], video.filename)
-    output_filename = f"trimmed_{video.filename}"
-    output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
-    video.save(input_path)
-
-    try:
-        clip = VideoFileClip(input_path)
+    <script>
+        // បង្ហាញឈ្មោះឯកសារពេលជ្រើសរើស
+        document.getElementById('videoFile').onchange = function(e) {
+            const fileName = e.target.files[0] ? e.target.files[0].name : 'ចុចទីនេះដើម្បីជ្រើសរើសវីដេអូ';
+            document.getElementById('fileLabel').textContent = '📁 ' + fileName;
+        };
         
-        start_time = start_min * 60
-        end_time = end_min * 60
-        
-        # ចំណាំ: v2 ប្រើ subclipped(), v1 ប្រើ subclip()
-        try:
-            trimmed_clip = clip.subclipped(start_time, end_time)
-        except AttributeError:
-            trimmed_clip = clip.subclip(start_time, end_time)
-        
-        trimmed_clip.write_videofile(output_path, codec="libx264", audio_codec="aac")
-        
-        clip.close()
-        trimmed_clip.close()
-
-        return send_file(output_path, as_attachment=True, download_name=output_filename)
-
-    except Exception as e:
-        return f"មានបញ្ហាក្នុងការកាត់វីដេអូ: {str(e)}", 500
-
-if __name__ == '__main__':
-    app.run(debug=True)
+        document.getElementById('uploadForm').onsubmit = function() {
+            document.getElementById('result').style.display = 'block';
+        };
+    </script>
+</body>
+</html>
