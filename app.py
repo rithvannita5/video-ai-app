@@ -1,10 +1,10 @@
 from flask import Flask, render_template, request, send_file
 import os
+import yt_dlp
 from moviepy.editor import VideoFileClip
 
 app = Flask(__name__)
 
-# កំណត់ថតផ្ទុកឯកសារបណ្ដោះអាសន្ន (Render អនុញ្ញាត /tmp)
 UPLOAD_FOLDER = '/tmp'
 OUTPUT_FOLDER = '/tmp/output'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -21,34 +21,45 @@ def index():
 
 @app.route('/process', methods=['POST'])
 def process_video():
-    # ទទួលឯកសារពី Form
     video_file = request.files.get('video')
+    video_link = request.form.get('video_link', '').strip()
     minutes_per_part = float(request.form.get('minutes_per_part', 10))
     target_language = request.form.get('target_language', 'km')
     voice_gender = request.form.get('voice_gender', 'female')
 
-    # ពិនិត្យថាមាន Upload វីដេអូ
-    if not video_file or video_file.filename == '':
-        return "សូម Upload វីដេអូជាមុនសិន", 400
+    input_path = None
 
-    # រក្សាទុកឯកសារ
-    input_path = os.path.join(app.config['UPLOAD_FOLDER'], video_file.filename)
-    video_file.save(input_path)
+    # ជម្រើសទី 1: Upload ឯកសារ
+    if video_file and video_file.filename != '':
+        input_path = os.path.join(app.config['UPLOAD_FOLDER'], video_file.filename)
+        video_file.save(input_path)
+
+    # ជម្រើសទី 2: ដាក់ Link
+    elif video_link:
+        try:
+            ydl_opts = {
+                'format': 'mp4/bestvideo+bestaudio',
+                'outtmpl': os.path.join(app.config['UPLOAD_FOLDER'], '%(title)s.%(ext)s'),
+                'quiet': True,
+                'no_warnings': True,
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(video_link, download=True)
+                input_path = ydl.prepare_filename(info)
+        except Exception as e:
+            return f"មិនអាចទាញយកវីដេអូពី Link បានទេ: {str(e)}", 400
+    else:
+        return "សូម Upload វីដេអូ ឬ ដាក់ Link ជាមុនសិន", 400
 
     try:
-        # បើកវីដេអូដោយ MoviePy
         clip = VideoFileClip(input_path)
-        duration = clip.duration  # រយៈពេលសរុបគិតជាវិនាទី
-        part_duration = minutes_per_part * 60  # បំប្លែងនាទីទៅវិនាទី
-
-        # គណនាចំនួនផ្នែកដែលត្រូវកាត់
+        duration = clip.duration
+        part_duration = minutes_per_part * 60
         num_parts = int(duration // part_duration)
         if duration % part_duration > 0:
             num_parts += 1
 
         output_files = []
-
-        # កាត់វីដេអូជាចំណែកៗ
         for i in range(num_parts):
             start = i * part_duration
             end = min((i + 1) * part_duration, duration)
@@ -57,7 +68,6 @@ def process_video():
             output_filename = f"{base_name}_part{i+1}.mp4"
             output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
 
-            # ប្រើ subclip សម្រាប់ MoviePy 1.0.3
             sub_clip = clip.subclip(start, end)
             sub_clip.write_videofile(
                 output_path,
@@ -70,8 +80,6 @@ def process_video():
 
         clip.close()
 
-        # ជាបណ្ដោះអាសន្ន ផ្ញើឯកសារដំបូងត្រឡប់ទៅវិញ
-        # (នៅពេលក្រោយយើងនឹងធ្វើឱ្យវាបង្ហាញបញ្ជីឯកសារទាំងអស់)
         return send_file(
             output_files[0],
             as_attachment=True,
