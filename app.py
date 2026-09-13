@@ -40,13 +40,15 @@ def download_video_from_link(video_url, output_path):
     ydl_opts = {
         'format': 'mp4/bestvideo+bestaudio/best',
         'outtmpl': output_path,
-        'quiet': False,          # បង្ហាញ log
-        'verbose': True,         # បង្ហាញ Error លម្អិត
+        'quiet': False,
+        'verbose': True,
         'no_warnings': False,
         'impersonate': 'chrome',
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         },
+        # បន្ថែម JavaScript Runtime (Node.js)
+        'js_runtimes': {'node': {}},
         'extractor_args': {
             'youtubepot-bgutilhttp': {
                 'base_url': 'http://127.0.0.1:4416'
@@ -138,7 +140,7 @@ def process_video():
                 try:
                     sub_clip = clip.subclipped(start, end)
                 except AttributeError:
-                    sub_clip = clip.subclip(start, end)
+                    sub_clip = sub_clip.subclip(start, end)
 
                 sub_clip.write_videofile(
                     output_path,
