@@ -1,11 +1,11 @@
 from flask import Flask, render_template, request, send_file
 import os
-import sys
 import subprocess
 import time
 import traceback
 import logging
 import yt_dlp
+from yt_dlp.networking.impersonate import ImpersonateTarget
 
 try:
     from moviepy import VideoFileClip
@@ -30,17 +30,30 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 
 
+POT_PROVIDER_SERVER_PATH = "/opt/bgutil-provider/server/build/main.js"
+
+
 def start_pot_provider():
     """
     ចាប់ផ្តើម bgutil POT provider server ។
-    ប្រើ sys.executable ជំនួស 'python' ព្រោះ image python:3.11-slim
-    ជាធម្មតាមានតែ 'python3' មិនមែន 'python' ទេ — បើប្រើ 'python' វានឹង
-    បរាជ័យស្ងាត់ៗ (FileNotFoundError) ហើយ yt-dlp នឹងគ្មាន POT token
-    ធ្វើឲ្យការទាញយកបរាជ័យជាមួយ error មិនច្បាស់លាស់។
+
+    សំខាន់៖ pip package 'bgutil-ytdlp-pot-provider' គឺជា *plugin* ខាង yt-dlp
+    ដែលនិយាយទៅ server ប៉ុណ្ណោះ — វាគ្មាន module Python ដែលអាចហៅ
+    `python -m bgutil_ytdlp_pot_provider server` បានឡើយ។ Server ពិតប្រាកដ
+    ជា Node.js application ដាច់ដោយឡែក ដែល Dockerfile បាន clone+build
+    ទុកជាមុននៅ /opt/bgutil-provider/server/build/main.js ។
     """
+    if not os.path.exists(POT_PROVIDER_SERVER_PATH):
+        logger.error(
+            "POT Provider server file not found at %s — did the Docker build step "
+            "(git clone + npm ci + npx tsc) succeed?",
+            POT_PROVIDER_SERVER_PATH,
+        )
+        return
+
     try:
         proc = subprocess.Popen(
-            [sys.executable, "-m", "bgutil_ytdlp_pot_provider", "server"],
+            ["node", POT_PROVIDER_SERVER_PATH, "--port", "4416"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True
@@ -61,6 +74,15 @@ start_pot_provider()
 
 
 def download_video_from_link(video_url, output_path):
+    # 'impersonate' ត្រូវជា object ImpersonateTarget មិនមែន string ធម្មតាទេ
+    # ពេលហៅ yt_dlp.YoutubeDL() ដោយផ្ទាល់ (មិនមែនតាម CLI) — បើផ្ញើ string ត្រង់ៗ
+    # វានឹង crash ជាមួយ AssertionError ក្នុង is_supported_target().
+    try:
+        impersonate_target = ImpersonateTarget.from_str('chrome')
+    except Exception:
+        logger.warning("Could not build ImpersonateTarget('chrome'); disabling impersonation")
+        impersonate_target = None
+
     ydl_opts = {
         'format': 'mp4/bestvideo+bestaudio/best',
         'outtmpl': output_path,
@@ -68,7 +90,7 @@ def download_video_from_link(video_url, output_path):
         'verbose': True,
         'no_warnings': False,
         'ignoreerrors': False,
-        'impersonate': 'chrome',
+        'impersonate': impersonate_target,
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         },
