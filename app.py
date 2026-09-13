@@ -1,7 +1,12 @@
 from flask import Flask, render_template, request, send_file
 import os
 import yt_dlp
-from moviepy.editor import VideoFileClip
+
+# ព្យាយាម import ទាំងពីរជំនាន់
+try:
+    from moviepy import VideoFileClip  # MoviePy v2.x
+except ImportError:
+    from moviepy.editor import VideoFileClip  # MoviePy v1.x
 
 app = Flask(__name__)
 
@@ -23,7 +28,16 @@ def index():
 def process_video():
     video_file = request.files.get('video')
     video_link = request.form.get('video_link', '').strip()
-    minutes_per_part = float(request.form.get('minutes_per_part', 10))
+    
+    # កែបញ្ហា ValueError: បើទទេ ឬ មិនត្រឹមត្រូវ ឱ្យប្រើ 10 ជំនួស
+    try:
+        minutes_raw = request.form.get('minutes_per_part', '10').strip()
+        minutes_per_part = float(minutes_raw) if minutes_raw else 10.0
+        if minutes_per_part <= 0:
+            minutes_per_part = 10.0
+    except (ValueError, TypeError):
+        minutes_per_part = 10.0
+
     target_language = request.form.get('target_language', 'km')
     voice_gender = request.form.get('voice_gender', 'female')
 
@@ -38,7 +52,7 @@ def process_video():
     elif video_link:
         try:
             ydl_opts = {
-                'format': 'mp4/bestvideo+bestaudio',
+                'format': 'mp4/bestvideo+bestaudio/best',
                 'outtmpl': os.path.join(app.config['UPLOAD_FOLDER'], '%(title)s.%(ext)s'),
                 'quiet': True,
                 'no_warnings': True,
@@ -55,20 +69,27 @@ def process_video():
         clip = VideoFileClip(input_path)
         duration = clip.duration
         part_duration = minutes_per_part * 60
+
         num_parts = int(duration // part_duration)
         if duration % part_duration > 0:
             num_parts += 1
 
         output_files = []
+        base_name = os.path.splitext(os.path.basename(input_path))[0]
+
         for i in range(num_parts):
             start = i * part_duration
             end = min((i + 1) * part_duration, duration)
 
-            base_name = os.path.splitext(os.path.basename(input_path))[0]
             output_filename = f"{base_name}_part{i+1}.mp4"
             output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
 
-            sub_clip = clip.subclip(start, end)
+            # គាំទ្រទាំង subclipped (v2) និង subclip (v1)
+            try:
+                sub_clip = clip.subclipped(start, end)
+            except AttributeError:
+                sub_clip = clip.subclip(start, end)
+
             sub_clip.write_videofile(
                 output_path,
                 codec="libx264",
