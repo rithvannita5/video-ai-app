@@ -30,4 +30,8 @@ COPY . .
 
 EXPOSE 10000
 
-CMD gunicorn --bind 0.0.0.0:10000 app:app
+# --timeout ត្រូវបង្កើនឲ្យវែង ព្រោះ download + encode វីដេអូ ជាធម្មតាចំណាយពេលច្រើនជាង
+# 30s ដែលជា default របស់ gunicorn — បើមិនកែ វានឹង kill worker ភ្លាមៗ (WORKER TIMEOUT)
+# ខណៈកំពុងដំណើរការ ធ្វើឲ្យ user ឃើញ 502 ។ --workers 1 ដើម្បីជៀសវាង ffmpeg ច្រើន process
+# ប្រណាំងគ្នាប្រើ RAM លើ Render free/starter tier ។
+CMD gunicorn --bind 0.0.0.0:${PORT:-10000} --workers 1 --timeout 900 --graceful-timeout 900 app:app
