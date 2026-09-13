@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, send_file
 import os
-import requests
+import yt_dlp
 
 try:
     from moviepy import VideoFileClip
@@ -20,49 +20,30 @@ app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 
 def download_video_from_link(video_url, output_path):
     """
-    ប្រើ Cobalt API ដើម្បីទាញយកវីដេអូពី Link
-    គាំទ្រ YouTube, Dailymotion, Twitter, TikTok, Instagram ជាដើម
+    ប្រើ yt-dlp ជាមួយ POT Provider ដើម្បីទាញយកវីដេអូ
     """
-    # Cobalt API Instance (ឥតគិតថ្លៃ)
-    api_url = "https://api.cobalt.tools/api/json"
-    
-    headers = {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-    }
-    
-    payload = {
-        "url": video_url,
-        "vQuality": "720",  # គុណភាពវីដេអូ
-        "isAudioOnly": False,
+    ydl_opts = {
+        'format': 'mp4/bestvideo+bestaudio/best',
+        'outtmpl': output_path,
+        'quiet': True,
+        'no_warnings': True,
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        },
+        # បន្ថែម POT Provider (ជួយឆ្លងកាត់ Bot Check)
+        'extractor_args': {
+            'youtubepot-bgutilhttp': {
+                'base_url': 'http://127.0.0.1:4416'
+            }
+        }
     }
     
     try:
-        response = requests.post(api_url, json=payload, headers=headers, timeout=30)
-        response.raise_for_status()
-        data = response.json()
-        
-        if data.get("status") == "error":
-            raise Exception(data.get("text", "Unknown error from Cobalt API"))
-        
-        # Cobalt ត្រឡប់ URL នៃវីដេអូដែលបានរៀបចំរួច
-        download_url = data.get("url")
-        if not download_url:
-            raise Exception("Cobalt API មិនបានត្រឡប់ URL ទាញយកទេ")
-        
-        # ទាញយកវីដេអូពី URL នោះ
-        video_response = requests.get(download_url, stream=True, timeout=120)
-        video_response.raise_for_status()
-        
-        with open(output_path, 'wb') as f:
-            for chunk in video_response.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([video_url])
         return output_path
-    
     except Exception as e:
-        raise Exception(f"Cobalt API Error: {str(e)}")
+        raise Exception(f"yt-dlp Error: {str(e)}")
 
 
 @app.route('/')
@@ -97,10 +78,9 @@ def process_video():
         input_path = os.path.join(app.config['UPLOAD_FOLDER'], video_file.filename)
         video_file.save(input_path)
 
-    # ជម្រើសទី 2: ដាក់ Link (ប្រើ Cobalt API)
+    # ជម្រើសទី 2: ដាក់ Link (ប្រើ yt-dlp + POT Provider)
     elif video_link:
         try:
-            # កំណត់ឈ្មោះឯកសារតាមពេលវេលា
             import time
             filename = f"downloaded_{int(time.time())}.mp4"
             input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
