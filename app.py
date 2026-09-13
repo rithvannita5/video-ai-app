@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, send_file, jsonify
 import os
 import yt_dlp  # សម្រាប់ទាញយកវីដេអូពី Link
-from moviepy import VideoFileClip
+from moviepy.editor import VideoFileClip
 
 app = Flask(__name__)
 
