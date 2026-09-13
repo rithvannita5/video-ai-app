@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Video AI Webapp</title>
-    <!-- បន្ថែម Google Font សម្រាប់អក្សរខ្មែរឱ្យស្អាត -->
+    <!-- ពុម្ពអក្សរខ្មែរស្អាត -->
     <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -39,7 +39,7 @@
             color: #444;
             font-size: 15px;
         }
-        input[type="text"], input[type="number"], select {
+        input[type="number"], select {
             width: 100%;
             padding: 14px;
             border: 2px solid #e0e0e0;
@@ -78,23 +78,6 @@
             font-weight: 600;
             cursor: pointer;
         }
-        .divider {
-            text-align: center;
-            margin: 20px 0;
-            color: #999;
-            font-size: 14px;
-            position: relative;
-        }
-        .divider::before, .divider::after {
-            content: "";
-            position: absolute;
-            top: 50%;
-            width: 45%;
-            height: 1px;
-            background: #e0e0e0;
-        }
-        .divider::before { left: 0; }
-        .divider::after { right: 0; }
         button {
             width: 100%;
             padding: 16px;
@@ -127,28 +110,26 @@
     <div class="container">
         <h1>🎬 Video AI Webapp</h1>
         <form id="uploadForm" action="/process" method="POST" enctype="multipart/form-data">
-            
-            <!-- ផ្នែក Upload វីដេអូ ឬ ដាក់ Link -->
+
+            <!-- 1. Upload វីដេអូ -->
             <div class="form-group">
-                <label>1. Upload វីដេអូ ឬ ដាក់ Share Link</label>
+                <label>1. ជ្រើសរើសវីដេអូ (Upload Video)</label>
                 <div class="file-input-wrapper">
-                    <input type="file" name="video" id="videoFile" accept="video/*">
+                    <input type="file" name="video" id="videoFile" accept="video/*" required>
                     <label for="videoFile" class="file-input-btn" id="fileLabel">📁 ចុចទីនេះដើម្បីជ្រើសរើសវីដេអូ</label>
                 </div>
-                <div class="divider">ឬ</div>
-                <input type="text" name="video_link" placeholder="ដាក់តំណភ្ជាប់វីដេអូ (ឧ. https://youtu.be/...)">
             </div>
 
-            <!-- ផ្នែកកាត់វីដេអូស្វ័យប្រវត្តិ -->
+            <!-- 2. កាត់វីដេអូស្វ័យប្រវត្តិ -->
             <div class="form-group">
                 <label>2. កាត់វីដេអូស្វ័យប្រវត្តិ (Auto Split)</label>
                 <input type="number" name="minutes_per_part" value="10" min="1" step="1" placeholder="បំពេញចំនួននាទីក្នុងមួយផ្នែក">
                 <p class="note">* ឧទាហរណ៍៖ វីដេអូ 60 នាទី បើកំណត់ 10 នាទី វានឹងកាត់ជា 6 ផ្នែកដោយស្វ័យប្រវត្តិ។</p>
             </div>
 
-            <!-- ផ្នែកបកប្រែ និងសំឡេង AI -->
+            <!-- 3. ជ្រើសរើសភាសាបកប្រែ -->
             <div class="form-group">
-                <label>3. ជ្រើសរើសភាសាបកប្រែ</label>
+                <label>3. ជ្រើសរើសភាសាបកប្រែ (Target Language)</label>
                 <select name="target_language">
                     <option value="km">ខ្មែរ (Khmer)</option>
                     <option value="en">អង់គ្លេស (English)</option>
@@ -158,11 +139,13 @@
                 </select>
             </div>
 
+            <!-- 4. ជ្រើសរើសសំឡេង AI -->
             <div class="form-group">
-                <label>4. ជ្រើសរើសសំឡេង AI</label>
+                <label>4. ជ្រើសរើសសំឡេង AI (Voice)</label>
                 <select name="voice_gender">
                     <option value="female">សំឡេងស្រី (Female)</option>
                     <option value="male">សំឡេងប្រុស (Male)</option>
+                    <option value="both">ស្រី+ប្រុស តាមតួអង្គ (Both)</option>
                 </select>
             </div>
 
@@ -177,10 +160,11 @@
     <script>
         // បង្ហាញឈ្មោះឯកសារពេលជ្រើសរើស
         document.getElementById('videoFile').onchange = function(e) {
-            const fileName = e.target.files[0] ? e.target.files[0].name : 'ចុចទីនេះដើម្បីជ្រើសរើសវីដេអូ';
-            document.getElementById('fileLabel').textContent = '📁 ' + fileName;
+            const fileName = e.target.files[0] ? e.target.files[0].name : '📁 ចុចទីនេះដើម្បីជ្រើសរើសវីដេអូ';
+            document.getElementById('fileLabel').textContent = fileName;
         };
-        
+
+        // បង្ហាញប្រអប់រង់ចាំពេល Submit
         document.getElementById('uploadForm').onsubmit = function() {
             document.getElementById('result').style.display = 'block';
         };
