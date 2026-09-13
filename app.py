@@ -1,7 +1,10 @@
 from flask import Flask, render_template, request, send_file
 import os
+import sys
 import subprocess
 import time
+import traceback
+import logging
 import yt_dlp
 
 try:
@@ -10,6 +13,13 @@ except ImportError:
     from moviepy.editor import VideoFileClip
 
 app = Flask(__name__)
+
+# --- Logging setup ---
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 UPLOAD_FOLDER = '/tmp'
 OUTPUT_FOLDER = '/tmp/output'
@@ -21,16 +31,30 @@ app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 
 
 def start_pot_provider():
+    """
+    ចាប់ផ្តើម bgutil POT provider server ។
+    ប្រើ sys.executable ជំនួស 'python' ព្រោះ image python:3.11-slim
+    ជាធម្មតាមានតែ 'python3' មិនមែន 'python' ទេ — បើប្រើ 'python' វានឹង
+    បរាជ័យស្ងាត់ៗ (FileNotFoundError) ហើយ yt-dlp នឹងគ្មាន POT token
+    ធ្វើឲ្យការទាញយកបរាជ័យជាមួយ error មិនច្បាស់លាស់។
+    """
     try:
-        subprocess.Popen(
-            ["python", "-m", "bgutil_ytdlp_pot_provider", "server"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+        proc = subprocess.Popen(
+            [sys.executable, "-m", "bgutil_ytdlp_pot_provider", "server"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
         )
         time.sleep(3)
-        print("POT Provider started")
-    except Exception as e:
-        print(f"POT Provider warning: {e}")
+
+        # ពិនិត្យថា process នៅតែដំណើរការ (មិនទាន់ crash)
+        if proc.poll() is not None:
+            out, err = proc.communicate(timeout=2)
+            logger.error(f"POT Provider crashed on startup. stdout={out} stderr={err}")
+        else:
+            logger.info("POT Provider started successfully (pid=%s)", proc.pid)
+    except Exception:
+        logger.error("POT Provider failed to start:\n%s", traceback.format_exc())
 
 
 start_pot_provider()
@@ -53,19 +77,26 @@ def download_video_from_link(video_url, output_path):
             'youtubepot-bgutilhttp': {
                 'base_url': 'http://127.0.0.1:4416'
             }
-        }
+        },
+        # ផ្ញើ log របស់ yt-dlp ចូល logger របស់យើង ជំនួសឲ្យបាត់ទៅក្នុង stdout ធម្មតា
+        'logger': logger,
     }
-    
+
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(video_url, download=True)
             if info is None:
-                raise Exception("yt-dlp មិនអាចទាញយកព័ត៌មានវីដេអូបានទេ")
+                raise Exception("yt-dlp មិនអាចទាញយកព័ត៌មានវីដេអូបានទេ (info=None)")
         return output_path
     except yt_dlp.utils.DownloadError as e:
-        raise Exception(f"DownloadError: {str(e)}")
+        logger.error("yt-dlp DownloadError:\n%s", traceback.format_exc())
+        raise Exception(f"DownloadError: {str(e) or repr(e)}")
     except Exception as e:
-        raise Exception(f"GeneralError: {str(e)}")
+        # បង្ហាញ traceback ពេញលេញទៅ log (Render logs / console)
+        logger.error("Unexpected error while downloading:\n%s", traceback.format_exc())
+        # ដាក់ type(e).__name__ ដើម្បីកុំឲ្យសារនៅទទេ ពេល str(e) ជាទទេ
+        detail = str(e) or repr(e) or "គ្មានព័ត៌មានលម្អិត (empty exception message)"
+        raise Exception(f"GeneralError: {type(e).__name__}: {detail}")
 
 
 @app.route('/')
@@ -77,7 +108,7 @@ def index():
 def process_video():
     video_file = request.files.get('video')
     video_link = request.form.get('video_link', '').strip()
-    
+
     minutes_raw = request.form.get('minutes_per_part', '').strip()
     if minutes_raw == '' or minutes_raw is None:
         minutes_per_part = None
@@ -99,13 +130,14 @@ def process_video():
         try:
             filename = f"downloaded_{int(time.time())}.mp4"
             input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            
+
             download_video_from_link(video_link, input_path)
-            
+
             if not os.path.exists(input_path) or os.path.getsize(input_path) == 0:
                 return "ការទាញយកវីដេអូបរាជ័យ ឬ ឯកសារទទេ", 400
-                
+
         except Exception as e:
+            logger.error("Failed to download from link:\n%s", traceback.format_exc())
             return f"មិនអាចទាញយកវីដេអូពី Link បានទេ: {str(e)}", 400
     else:
         return "សូម Upload វីដេអូ ឬ ដាក់ Link ជាមុនសិន", 400
@@ -120,7 +152,7 @@ def process_video():
         if minutes_per_part is None:
             output_filename = f"{base_name}_full.mp4"
             output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
-            
+
             clip.write_videofile(
                 output_path,
                 codec="libx264",
@@ -163,8 +195,9 @@ def process_video():
             download_name=os.path.basename(output_files[0])
         )
 
-    except Exception as e:
-        return f"មានបញ្ហាក្នុងការកាត់វីដេអូ: {str(e)}", 500
+    except Exception:
+        logger.error("Failed while cutting/processing video:\n%s", traceback.format_exc())
+        return f"មានបញ្ហាក្នុងការកាត់វីដេអូ: {traceback.format_exc(limit=1)}", 500
 
 
 if __name__ == '__main__':
