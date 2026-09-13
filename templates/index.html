@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video AI Webapp</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f4f4f9; }
+        h1 { color: #333; text-align: center; }
+        .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #555; }
+        input[type="file"], input[type="number"], select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        .row { display: flex; gap: 20px; }
+        .row .form-group { flex: 1; }
+        button { width: 100%; padding: 15px; background-color: #28a745; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; }
+        button:hover { background-color: #218838; }
+        .note { font-size: 12px; color: #888; margin-top: 5px; }
+        .result { margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 5px; display: none; }
+        .result a { color: #007bff; font-weight: bold; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Video AI Webapp</h1>
+        <form id="uploadForm" action="/process" method="POST" enctype="multipart/form-data">
+            
+            <!-- ផ្នែក Upload វីដេអូ -->
+            <div class="form-group">
+                <label>1. ជ្រើសរើសវីដេអូ (Upload Video)</label>
+                <input type="file" name="video" accept="video/*" required>
+            </div>
+
+            <!-- ផ្នែកកាត់វីដេអូ -->
+            <div class="form-group">
+                <label>2. កំណត់ការកាត់វីដេអូ (Trim Video)</label>
+                <div class="row">
+                    <div class="form-group">
+                        <label>ចាប់ផ្តើម (នាទីទី):</label>
+                        <input type="number" name="start_min" value="0" min="0" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>បញ្ចប់ (នាទីទី):</label>
+                        <input type="number" name="end_min" value="1" min="0.1" step="0.1">
+                    </div>
+                </div>
+                <p class="note">* ឧទាហរណ៍៖ ចង់កាត់ត្រឹម 2 នាទី សូមបំពេញ 0 ដល់ 2 ។</p>
+            </div>
+
+            <!-- ផ្នែកបកប្រែ និងសំឡេង AI (នឹងធ្វើនៅជំហានក្រោយ) -->
+            <div class="form-group">
+                <label>3. ជម្រើសបកប្រែ និងសំឡេង AI</label>
+                <select name="voice_gender">
+                    <option value="female">សំឡេងស្រី (Female)</option>
+                    <option value="male">សំឡេងប្រុស (Male)</option>
+                </select>
+            </div>
+
+            <button type="submit">ចាប់ផ្តើមដំណើរការ (Process Video)</button>
+        </form>
+
+        <div class="result" id="result">
+            <p>✅ ការងាររបស់អ្នកកំពុងដំណើរការ! សូមរង់ចាំ...</p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('uploadForm').onsubmit = function() {
+            document.getElementById('result').style.display = 'block';
+        };
+    </script>
+</body>
+</html>
